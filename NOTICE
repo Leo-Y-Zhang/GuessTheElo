@@ -1,0 +1,16 @@
+Third-party material in this repository
+=======================================
+
+The LICENSE file covers the code and text written for this project. The material below keeps its
+own licence.
+
+1. Chess pieces
+   Files: assets/pieces/*.svg, and the same images inlined as data URIs in index.html.
+   The "cburnett" chess piece set by Colin M.L. Burnett, published on Wikimedia Commons under a
+   choice of the GFDL, the BSD licence and the GPL. It is used here under the BSD licence.
+
+2. Game data
+   File: games.json.
+   Derived from the Lichess open database (https://database.lichess.org/), standard rated games,
+   October 2026, which Lichess releases under CC0 (public domain dedication). Player names and
+   other identifying fields were dropped during extraction.

@@ -1,0 +1,1348 @@
+<title>Guess the Elo</title>
+<script>try{var s=JSON.parse(localStorage.getItem('gte:v1')||'null');var t=s&&s.v===1&&s.settings&&s.settings.theme;if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Tournament hall: green vinyl board beside a burgundy digital clock; the seven-segment LCD is the one signature. */
+:root{
+  --bg:#E8ECEE; --surface:#F7F9FA; --fill:#DCE2E5; --ink:#16202A; --muted:#55636F; --line:#C5CDD3;
+  --accent:#8C1D2C; --accent-ink:#FFFFFF; --housing:#6E1622; --lcd:#B9C2A6; --lcd-on:#C9D2B5; --lcd-ink:#1C2418;
+  --sq-light:#ECEBD8; --sq-dark:#5E8A5A; --last:rgba(227,201,74,.55); --check:rgba(196,50,28,.7);
+  --inacc:#9A7400; --mistake:#B8560F; --blunder:#C4321C; --good:#1F6B45;
+  --ev-w:#F3F3EE; --ev-b:#2B3238;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Barlow",Arial,Helvetica,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#17212B; --surface:#1F2B36; --fill:#26343F; --ink:#E6ECEF; --muted:#9AA8B3; --line:#33424F;
+  --accent:#C7475A; --accent-ink:#FFFFFF; --housing:#6E1622; --lcd:#AEB89B; --lcd-on:#BEC8AA; --lcd-ink:#1A2216;
+  --sq-light:#C9CCB4; --sq-dark:#4F7550; --last:rgba(227,201,74,.5); --check:rgba(196,50,28,.7);
+  --inacc:#D9B441; --mistake:#E58A45; --blunder:#EC6A56; --good:#5DBB8A;
+  --ev-w:#E9EAE4; --ev-b:#0F151B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#17212B; --surface:#1F2B36; --fill:#26343F; --ink:#E6ECEF; --muted:#9AA8B3; --line:#33424F;
+  --accent:#C7475A; --accent-ink:#FFFFFF; --housing:#6E1622; --lcd:#AEB89B; --lcd-on:#BEC8AA; --lcd-ink:#1A2216;
+  --sq-light:#C9CCB4; --sq-dark:#4F7550; --last:rgba(227,201,74,.5); --check:rgba(196,50,28,.7);
+  --inacc:#D9B441; --mistake:#E58A45; --blunder:#EC6A56; --good:#5DBB8A;
+  --ev-w:#E9EAE4; --ev-b:#0F151B; color-scheme:dark}
+:root[data-theme="light"]{color-scheme:light}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.eyebrow{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;line-height:1.05;margin:0;text-wrap:balance}
+
+.app{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 32px}
+
+/* header */
+.hdr{display:flex;align-items:center;gap:8px 20px;min-height:56px;border-bottom:1px solid var(--line);margin-bottom:20px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:8px;background:none;border:0;padding:4px 0;margin-right:auto}
+.brand-t{font-family:var(--f-display);font-weight:700;font-size:21px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.nav{display:flex;gap:4px}
+.nav button,.tool{background:none;border:0;border-radius:4px;min-height:40px;padding:0 10px;font-family:var(--f-display);font-weight:600;font-size:16px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.nav button:hover,.tool:hover{color:var(--ink)}
+.nav button[aria-current="page"]{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent);border-radius:0}
+.tools{display:flex;gap:2px}
+.tool{font-size:14px}
+@media (max-width:620px){
+  .hdr{padding-top:6px}
+  .nav{order:3;width:100%;justify-content:space-between;border-top:1px solid var(--line)}
+  .nav button{flex:1;min-height:44px}
+}
+
+.notice{display:flex;gap:12px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);padding:8px 12px;margin-bottom:16px;font-size:14px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:4px;border:1px solid var(--line);background:var(--surface);font-family:var(--f-display);font-weight:600;font-size:17px;letter-spacing:.05em;text-transform:uppercase;text-decoration:none;color:var(--ink);white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn.small{min-height:36px;padding:0 12px;font-size:15px}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--surface);max-width:100%}
+.seg button{border:0;background:none;min-height:40px;padding:0 14px;font-family:var(--f-display);font-weight:600;font-size:15px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-checked="true"]{background:var(--ink);color:var(--bg)}
+.seg.compact button{min-height:36px;padding:0 10px;font-size:14px}
+
+/* seven-segment LCD */
+.lcd{display:inline-flex;align-items:center;justify-content:center;background:var(--lcd);color:var(--lcd-ink);border:3px solid var(--housing);border-radius:4px;padding:5px 9px;line-height:0}
+.lcd svg{display:block;height:var(--lh,20px);width:auto;overflow:visible}
+.lcd .off{opacity:.08}
+.brand-lcd{--lh:16px;padding:4px 7px;border-width:3px}
+.hero-lcd{--lh:clamp(52px,9vw,84px);border-width:8px;padding:14px 18px}
+
+/* home */
+.home{display:grid;gap:28px;max-width:980px;margin:0 auto}
+.hero{display:flex;align-items:center;gap:28px;padding:12px 0 4px;flex-wrap:wrap}
+.hero-copy{flex:1 1 320px;min-width:0}
+.hero h1{font-size:clamp(40px,6vw,64px);text-transform:uppercase;letter-spacing:.02em}
+.hero p{margin:10px 0 0;max-width:52ch;color:var(--muted);font-size:18px}
+.rows{border-top:1px solid var(--line)}
+.row{display:flex;gap:16px 32px;align-items:center;justify-content:space-between;padding:22px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.row-main{flex:1 1 380px;min-width:0;display:grid;gap:6px}
+.row-main h2{font-size:30px}
+.row-main p{margin:0;color:var(--muted);max-width:60ch}
+.row-act{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.row-act .btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.dstat{display:flex;gap:18px;align-items:baseline;flex-wrap:wrap;justify-content:flex-end}
+.dstat b{font-family:var(--f-mono);font-size:26px;font-weight:600}
+.foot{font-size:14px;margin:0}
+@media (max-width:620px){.row-act{align-items:stretch;width:100%}.row-act .btn{width:100%}.row-act .btns{justify-content:stretch}.row-act .btns .btn{flex:1}.dstat{justify-content:flex-start}}
+
+/* game */
+.game{display:grid;gap:20px;grid-template-columns:minmax(0,1fr);--bw:min(100%,560px)}
+.boardcol{display:flex;flex-direction:column;gap:6px;width:var(--bw);margin:0 auto;min-width:0}
+.side{min-width:0}
+.side-in{display:flex;flex-direction:column;gap:14px}
+@media (min-width:900px){
+  .game{grid-template-columns:auto minmax(300px,380px);justify-content:center;align-items:stretch;
+    --bw:max(340px,min(700px,calc(100dvh - 250px),calc(100vw - 32px - 24px - 330px - 24px)))}
+  .boardcol{margin:0}
+  .side{position:relative}
+  .side-in{position:absolute;inset:0}
+}
+.roundhdr{display:flex;justify-content:space-between;gap:12px;min-height:24px;align-items:center;font-family:var(--f-display);font-weight:600;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden}
+.roundhdr span{overflow:hidden;text-overflow:ellipsis}
+.roundhdr .tc{color:var(--ink)}
+.pbar{display:flex;align-items:center;gap:10px;min-height:40px}
+.sw{width:14px;height:14px;border:1px solid var(--muted);border-radius:2px;flex:none}
+.sw.w{background:var(--ev-w)}.sw.b{background:var(--ev-b)}
+.pname{font-family:var(--f-display);font-weight:600;font-size:17px;letter-spacing:.04em;text-transform:uppercase}
+.prate{font-size:15px;color:var(--muted);min-width:4ch}
+.prate.known{color:var(--ink);font-weight:600}
+.pmat{font-size:13px;color:var(--muted);min-width:3ch}
+.pbar .clk{margin-left:auto;--lh:20px;padding:4px 8px;position:relative;opacity:.82}
+.pbar.active .clk{background:var(--lcd-on);opacity:1}
+.flag{position:absolute;top:-7px;right:-7px;width:16px;height:16px;color:var(--blunder)}
+.boardwrap{display:flex;gap:6px;width:100%}
+.evalbar{width:12px;flex:none;background:var(--ev-b);border-radius:2px;position:relative;overflow:hidden;border:1px solid var(--line)}
+.evalbar i{position:absolute;left:0;right:0;bottom:0;background:var(--ev-w);transition:height .3s ease}
+.evalbar.flip i{bottom:auto;top:0}
+.board{position:relative;flex:1;aspect-ratio:1/1;max-width:100%;user-select:none;-webkit-user-select:none;touch-action:manipulation;border-radius:2px;overflow:hidden}
+.sqs{position:absolute;inset:0;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr)}
+.sq{position:relative;background:var(--sq-light)}
+.sq.d{background:var(--sq-dark)}
+.sq.lm::before,.sq.ck::before{content:"";position:absolute;inset:0;background:var(--last)}
+.sq.ck::before{background:var(--check)}
+.sq .cr,.sq .cf{position:absolute;font-family:var(--f-mono);font-weight:600;font-size:clamp(8px,1.6vw,11px);line-height:1;color:var(--sq-dark);pointer-events:none}
+.sq.d .cr,.sq.d .cf{color:var(--sq-light)}
+.sq .cr{top:3px;left:3px}.sq .cf{bottom:3px;right:3px}
+.pcs{position:absolute;inset:0;pointer-events:none}
+.pc{position:absolute;left:0;top:0;width:12.5%;height:12.5%;display:block;max-width:none;will-change:transform}
+.badge{position:absolute;left:0;top:0;width:12.5%;height:12.5%;pointer-events:none}
+.badge span{position:absolute;top:4%;right:4%;width:40%;height:40%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-weight:600;font-size:clamp(8px,1.5vw,12px);color:#fff;border:2px solid var(--surface)}
+.badge.i span{background:var(--inacc)}.badge.m span{background:var(--mistake)}.badge.b span{background:var(--blunder)}
+.status{min-height:24px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status b{font-family:var(--f-mono);font-weight:600}
+.transport{display:grid;gap:8px}
+.tbtns{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.ib{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:var(--surface);border-radius:4px;padding:0;color:var(--ink)}
+.ib:hover{border-color:var(--muted)}
+.ib svg{width:20px;height:20px}
+.ib.play{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tbtns .seg{margin-left:auto}
+input[type=range]{width:100%;accent-color:var(--accent);min-height:28px;margin:0}
+@media (max-width:420px){.ib{width:40px}.tbtns{gap:3px}.tbtns .seg{margin-left:0;width:100%}.tbtns .seg button{flex:1}}
+
+.moves{border:1px solid var(--line);background:var(--surface);border-radius:4px;overflow:auto;flex:1 1 auto;min-height:120px;display:grid;grid-template-columns:calc(3ch + 14px) 1fr 1fr;align-content:start;font-family:var(--f-mono);font-size:14px;overscroll-behavior:contain}
+.mn{padding:5px 0 5px 8px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mv{display:flex;align-items:baseline;gap:4px;background:none;border:0;text-align:left;padding:5px 8px;border-radius:0;font-family:inherit;min-width:0;white-space:nowrap}
+.mv:hover{background:var(--fill)}
+.mv.cur{background:var(--ink);color:var(--bg)}
+.mv .tt{margin-left:auto;font-size:12px;color:var(--muted)}
+.mv.cur .tt{color:inherit;opacity:.7}
+.mk{font-weight:600}
+.mk.i{color:var(--inacc)}.mk.m{color:var(--mistake)}.mk.b{color:var(--blunder)}
+.mv.cur .mk{color:inherit}
+@media (max-width:899px){
+  .moves{display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;min-height:0;height:44px;align-items:center;padding:0 4px;scrollbar-width:thin}
+  .mn{padding:0 2px 0 8px;flex:none}
+  .mv{flex:none;padding:6px 6px}
+  .mv .tt{display:none}
+}
+
+/* guess panel */
+.panel{border:1px solid var(--line);background:var(--surface);border-radius:4px;padding:14px;flex:none;display:grid;gap:12px;min-width:0}
+.gtop{display:flex;align-items:center;gap:14px}
+.glcd{--lh:40px;border-width:5px;padding:8px 12px}
+.gband{display:grid;gap:2px;min-width:0}
+.gband strong{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:.03em;text-transform:uppercase;line-height:1.1}
+.slider{display:grid;gap:2px}
+.slider input.unset::-webkit-slider-thumb{opacity:0}
+.slider input.unset::-moz-range-thumb{opacity:0}
+.ticks{position:relative;height:16px;margin:0 9px;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.ticks span{position:absolute;transform:translateX(-50%)}
+.grow{display:flex;gap:8px}
+.grow input{flex:1;min-width:0;min-height:44px;border:1px solid var(--line);border-radius:4px;background:var(--bg);padding:0 12px;font-family:var(--f-mono);font-size:17px}
+.grow .btn{flex:none}
+.hint{font-size:13px;color:var(--muted);margin:0}
+@media (max-width:899px){.glcd{--lh:30px;border-width:4px;padding:6px 10px}}
+
+/* reveal */
+.rv{display:grid;gap:12px;min-width:0}
+.rv-head{display:flex;align-items:center;gap:14px}
+.rv-head .gband strong{font-size:20px}
+.scale{position:relative;height:94px;margin:0 6px}
+.scale .track{position:absolute;left:0;right:0;top:30px;height:6px;background:var(--fill);border-radius:3px}
+.scale .tk{position:absolute;top:80px;font-family:var(--f-mono);font-size:10px;color:var(--muted);transform:translateX(-50%)}
+.scale .tk::before{content:"";position:absolute;left:50%;top:-44px;width:1px;height:4px;background:var(--line)}
+.mkr{position:absolute;top:0;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;transition:left .8s cubic-bezier(.2,.7,.2,1),opacity .25s}
+.mkr.act{color:var(--accent);top:2px}
+.mkr.act i{width:3px;height:30px;background:var(--accent);margin-top:2px;border-radius:1px}
+.mkr.you{top:30px;color:var(--ink)}
+.mkr.you i,.mkr.mod i{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:9px solid var(--ink);order:-1;margin-top:6px}
+.mkr.mod{top:30px;color:var(--muted)}
+.mkr.mod i{border-bottom-color:var(--muted)}
+.mkr.mod span{margin-top:14px}
+.rv-score{display:flex;align-items:baseline;gap:8px 18px;flex-wrap:wrap}
+.rv-score .n{font-family:var(--f-mono);font-weight:600;font-size:30px;line-height:1}
+.rv-score .u{color:var(--muted);font-size:14px}
+.bull{font-family:var(--f-display);font-weight:700;font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);background:var(--accent);padding:2px 8px;border-radius:3px}
+.verdict{font-size:15px;min-height:46px}
+.verdict b{font-weight:600}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:14px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;font-family:var(--f-mono);font-size:13px;min-width:0;overflow-wrap:anywhere}
+.facts dd.txt{font-family:var(--f-body);font-size:14px}
+.graph{width:100%;height:auto;display:block;cursor:pointer;border:1px solid var(--line);border-radius:3px;background:var(--ev-b)}
+.graph .area{fill:var(--ev-w)}
+.graph .mid{stroke:var(--muted);stroke-dasharray:3 3;stroke-width:1}
+.graph .cur{stroke:var(--accent);stroke-width:2}
+.graph .dot-i{fill:var(--inacc)}.graph .dot-m{fill:var(--mistake)}.graph .dot-b{fill:var(--blunder)}
+.graph circle{stroke:var(--ev-b);stroke-width:1}
+.rv-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.rv-act .btn.primary{flex:1}
+.st{transition:opacity .25s ease}
+.rv:not(.s2) .st2,.rv:not(.s3) .st3,.rv:not(.s4) .st4,.rv:not(.s5) .st5{opacity:0;visibility:hidden}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:1px;background:currentColor}
+.legend .i{color:var(--inacc)}.legend .m{color:var(--mistake)}.legend .b{color:var(--blunder)}
+.legend em{font-style:normal;color:var(--muted)}
+
+/* summary, stats, about */
+.page{max-width:980px;margin:0 auto;display:grid;gap:22px}
+.page h1{font-size:clamp(34px,5vw,48px);text-transform:uppercase;letter-spacing:.02em}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.fig{background:var(--surface);padding:14px 16px;display:grid;gap:2px;min-width:0}
+.fig .v{font-family:var(--f-mono);font-weight:600;font-size:26px;line-height:1.2;font-variant-numeric:tabular-nums}
+.fig .k{font-size:13px;color:var(--muted)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:4px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-family:var(--f-display);font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--muted)}
+td{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+tr:last-child td{border-bottom:0}
+.bar{display:inline-block;height:8px;background:var(--accent);border-radius:1px;vertical-align:middle}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:18px}
+.chart{border:1px solid var(--line);border-radius:4px;background:var(--surface);padding:14px;display:grid;gap:8px;min-width:0}
+.chart h3{font-size:18px;text-transform:uppercase;letter-spacing:.05em}
+.chart svg{width:100%;height:auto;display:block}
+.chart .ax{stroke:var(--line);stroke-width:1}
+.chart .diag{stroke:var(--muted);stroke-dasharray:4 4;stroke-width:1}
+.chart .pt{fill:var(--accent);fill-opacity:.7}
+.chart .lbl{fill:var(--muted);font-family:var(--f-mono);font-size:10px}
+.chart .bb{fill:var(--accent)}
+.chart .bbg{fill:var(--fill)}
+.chart .bl{fill:var(--ink);font-family:var(--f-body);font-size:12px}
+.prose{max-width:68ch;display:grid;gap:14px}
+.prose h2{font-size:24px;text-transform:uppercase;letter-spacing:.04em;margin-top:8px}
+.prose p,.prose ul{margin:0}
+.prose ul{padding-left:20px;display:grid;gap:6px}
+.prose code{font-family:var(--f-mono);font-size:14px;background:var(--fill);padding:1px 5px;border-radius:3px}
+.copybox{width:100%;min-height:150px;font-family:var(--f-mono);font-size:13px;border:1px solid var(--line);border-radius:4px;background:var(--surface);padding:10px}
+.center{display:grid;place-items:center;min-height:50vh;text-align:center;gap:12px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="app" id="app">
+  <header class="hdr">
+    <button class="brand" id="brand" aria-label="Guess the Elo, home"><span class="brand-t">Guess the</span><span class="lcd brand-lcd" id="brand-lcd"></span></button>
+    <nav class="nav" aria-label="Main">
+      <button type="button" data-nav="home">Play</button>
+      <button type="button" data-nav="stats">Stats</button>
+      <button type="button" data-nav="about">About</button>
+    </nav>
+    <div class="tools">
+      <button type="button" class="tool" id="snd" aria-pressed="false">Sound off</button>
+      <button type="button" class="tool" id="thm">Theme: Auto</button>
+    </div>
+  </header>
+  <div class="notice" id="notice" hidden><span>Progress will not be saved in this browser.</span><button type="button" class="linkbtn" id="notice-x">Dismiss</button></div>
+  <main>
+    <section class="view center" id="v-loading"><div class="lcd hero-lcd" id="load-lcd"></div><p class="muted">Loading games</p></section>
+    <section class="view center" id="v-error" hidden><h2>The games did not load</h2><p class="muted">Check your connection, then try again.</p><button type="button" class="btn primary" id="retry">Retry</button></section>
+
+    <section class="view" id="v-home" hidden>
+      <div class="home">
+        <div class="hero">
+          <div class="lcd hero-lcd" id="hero-lcd"></div>
+          <div class="hero-copy">
+            <h1>Guess the Elo</h1>
+            <p>Watch a real rated game from Lichess, move by move, with the players' real clocks. Then guess their average rating.</p>
+          </div>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="row-main"><div class="eyebrow">Daily</div><h2 id="hd-title">Daily</h2><p id="hd-sub">Five games, the same for everyone today, with standard assists.</p></div>
+            <div class="row-act" id="hd-act"></div>
+          </div>
+          <div class="row">
+            <div class="row-main"><div class="eyebrow">Practice</div><h2>Endless games</h2>
+              <div class="seg" role="radiogroup" aria-label="Assist level" id="lvl-seg"></div>
+              <p id="hp-desc"></p></div>
+            <div class="row-act"><button type="button" class="btn primary" id="hp-start">Start practice</button><div class="mono muted" id="hp-streak"></div></div>
+          </div>
+        </div>
+        <textarea class="copybox" id="home-copy" readonly hidden aria-label="Result text"></textarea>
+        <p class="foot muted" id="home-foot"></p>
+      </div>
+    </section>
+
+    <section class="view" id="v-game" hidden>
+      <div class="game">
+        <div class="boardcol">
+          <div class="roundhdr"><span id="rh-l"></span><span id="rh-r" class="tc"></span></div>
+          <div class="pbar" id="bar-top"></div>
+          <div class="boardwrap">
+            <div class="evalbar" id="evalbar" hidden><i id="evalfill"></i></div>
+            <div class="board" id="board" aria-label="Chess board"><div class="sqs" id="sqs"></div><div class="pcs" id="pcs"></div></div>
+          </div>
+          <div class="pbar" id="bar-bot"></div>
+          <div class="status" id="status"></div>
+          <div class="transport">
+            <div class="tbtns">
+              <button type="button" class="ib" id="t-first" aria-label="First move"><svg viewBox="0 0 20 20"><path d="M4 4h2v12H4zM16 4v12L7 10z" fill="currentColor"/></svg></button>
+              <button type="button" class="ib" id="t-prev" aria-label="Previous move"><svg viewBox="0 0 20 20"><path d="M14 4v12L5 10z" fill="currentColor"/></svg></button>
+              <button type="button" class="ib play" id="t-play" aria-label="Play"><svg viewBox="0 0 20 20" id="t-play-i"><path d="M6 4l10 6-10 6z" fill="currentColor"/></svg></button>
+              <button type="button" class="ib" id="t-next" aria-label="Next move"><svg viewBox="0 0 20 20"><path d="M6 4v12l9-6z" fill="currentColor"/></svg></button>
+              <button type="button" class="ib" id="t-last" aria-label="Last move"><svg viewBox="0 0 20 20"><path d="M14 4h2v12h-2zM4 4v12l9-6z" fill="currentColor"/></svg></button>
+              <button type="button" class="ib" id="t-flip" aria-label="Flip board"><svg viewBox="0 0 20 20"><path d="M6 3v11H3.5L7 18l3.5-4H8V3zM14 17V6h2.5L13 2 9.5 6H12v11z" fill="currentColor"/></svg></button>
+              <div class="seg compact" role="radiogroup" aria-label="Replay pace" id="pace-seg"></div>
+            </div>
+            <input type="range" id="scrub" min="0" max="1" value="0" aria-label="Move scrubber">
+          </div>
+        </div>
+        <div class="side"><div class="side-in">
+          <div class="moves" id="moves" aria-label="Moves"></div>
+          <div class="panel" id="panel"></div>
+        </div></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-summary" hidden><div class="page" id="sum"></div></section>
+    <section class="view" id="v-stats" hidden><div class="page" id="stats"></div></section>
+    <section class="view" id="v-about" hidden><div class="page" id="about"></div></section>
+  </main>
+</div>
+
+<script>
+// ENGINE START
+const ENGINE = (() => {
+  const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
+  const sqi = s => (s.charCodeAt(1) - 49) * 8 + (s.charCodeAt(0) - 97);
+  function fromFen(fen) {
+    const b = new Array(64).fill('');
+    const rows = fen.split(' ')[0].split('/');
+    for (let r = 0; r < 8; r++) {
+      let f = 0;
+      for (const ch of rows[r]) {
+        if (ch >= '1' && ch <= '8') f += +ch; else { b[(7 - r) * 8 + f] = ch; f++; }
+      }
+    }
+    return b;
+  }
+  function toFen(b) {
+    const rows = [];
+    for (let r = 7; r >= 0; r--) {
+      let row = '', e = 0;
+      for (let f = 0; f < 8; f++) {
+        const p = b[r * 8 + f];
+        if (!p) e++; else { if (e) { row += e; e = 0; } row += p; }
+      }
+      if (e) row += e;
+      rows.push(row);
+    }
+    return rows.join('/');
+  }
+  function apply(b, uci) {
+    const n = b.slice();
+    const from = sqi(uci.slice(0, 2)), to = sqi(uci.slice(2, 4));
+    const p = n[from];
+    const mv = { from, to, captured: n[to] || '', rook: null };
+    n[from] = '';
+    const white = p === p.toUpperCase();
+    const kind = p.toLowerCase();
+    if (kind === 'k' && Math.abs((to % 8) - (from % 8)) === 2) {
+      const base = from - (from % 8), king = (to % 8) === 6;
+      const rf = base + (king ? 7 : 0), rt = base + (king ? 5 : 3);
+      n[rt] = n[rf]; n[rf] = '';
+      mv.rook = { from: rf, to: rt };
+    } else if (kind === 'p' && (from % 8) !== (to % 8) && !n[to]) {
+      const cap = (from - (from % 8)) + (to % 8);
+      mv.captured = n[cap]; n[cap] = '';
+    }
+    n[to] = uci.length > 4 ? (white ? uci[4].toUpperCase() : uci[4].toLowerCase()) : p;
+    return { board: n, mv };
+  }
+  function replay(ucis) {
+    let b = fromFen(START);
+    const boards = [b], moves = [];
+    for (const u of ucis) { const r = apply(b, u); b = r.board; boards.push(b); moves.push(r.mv); }
+    return { boards, moves };
+  }
+  const VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+  function material(b) {
+    let d = 0;
+    for (const p of b) if (p) d += (p === p.toUpperCase() ? 1 : -1) * VAL[p.toLowerCase()];
+    return d;
+  }
+  const score = err => Math.max(0, Math.min(1000, 1000 - 2 * Math.max(0, err - 25)));
+  const isHit = err => err <= 150;
+  function fnv1a(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    return h >>> 0;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function dailyIds(ids, date) {
+    const arr = ids.slice().sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    const rnd = mulberry32(fnv1a('gte-daily-' + date));
+    for (let k = 0; k < 5; k++) {
+      const j = k + Math.floor(rnd() * (arr.length - k));
+      const t = arr[k]; arr[k] = arr[j]; arr[j] = t;
+    }
+    return arr.slice(0, 5);
+  }
+  function dailyNumber(date) {
+    const [y, m, d] = date.split('-').map(Number);
+    return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(2026, 10, 1)) / 86400000) + 1;
+  }
+  function winPct(cp) {
+    if (cp === null || cp === undefined) return null;
+    if (Math.abs(cp) >= 9000) return cp > 0 ? 100 : 0;
+    const c = Math.max(-1000, Math.min(1000, cp));
+    return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * c)) - 1);
+  }
+  function tally(rounds) { // [{err, merr}] -> {you, model}
+    let you = 0, model = 0;
+    for (const r of rounds) {
+      if (r.err < r.merr) you += 1; else if (r.err > r.merr) model += 1; else { you += 0.5; model += 0.5; }
+    }
+    return { you, model };
+  }
+  function shareText(no, date, rounds) { // rounds: [{g, a, m, s}]
+    const total = rounds.reduce((t, r) => t + r.s, 0);
+    const errs = rounds.map(r => Math.abs(r.g - r.a));
+    const mean = Math.round(errs.reduce((t, e) => t + e, 0) / Math.max(1, errs.length));
+    const lines = ['Guess the Elo - Daily #' + no + ' (' + date + ')', total + '/' + (rounds.length * 1000) + ' - mean error ' + mean];
+    rounds.forEach((r, i) => {
+      const h = Math.round(r.s / 100);
+      lines.push((i + 1) + ' [' + '#'.repeat(h) + '-'.repeat(10 - h) + '] ' + errs[i] + ' off');
+    });
+    const t = tally(rounds.map(r => ({ err: Math.abs(r.g - r.a), merr: Math.abs(r.m - r.a) })));
+    lines.push('You ' + t.you + ' - ' + t.model + ' Model');
+    return lines.join('\n');
+  }
+  const BANDS = [[0, 'Beginner'], [1000, 'Casual'], [1400, 'Club'], [1800, 'Strong club'], [2200, 'Expert'], [2600, 'Elite']];
+  function band(r) { let n = BANDS[0][1]; for (const [lo, name] of BANDS) if (r >= lo) n = name; return n; }
+  return { START, fromFen, toFen, apply, replay, material, score, isHit, fnv1a, mulberry32, dailyIds, dailyNumber, winPct, tally, shareText, band, BANDS };
+})();
+// ENGINE END
+
+(() => {
+'use strict';
+const E = ENGINE;
+const PIECES = __PIECES__;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtInt = n => Math.round(n).toLocaleString('en-GB');
+const half = x => { const w = Math.floor(x), h = x - w >= 0.5; return (w || !h ? String(w) : '') + (h ? '½' : ''); };
+const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const narrow = () => window.matchMedia('(max-width: 899px)').matches;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const LEVELS = { blind: 'Blind', standard: 'Standard', assisted: 'Assisted' };
+const LEVEL_DESC = {
+  blind: 'Board and moves only. No clocks and no time control.',
+  standard: 'Adds the clocks, the time control and the thinking time behind every move.',
+  assisted: 'Adds an engine evaluation bar and marks for inaccuracies, mistakes and blunders.'
+};
+const PACES = { real: 'Real tempo', steady: 'Steady', fast: 'Fast' };
+const CLS = { blitz: 'Blitz', rapid: 'Rapid', classical: 'Classical' };
+const MARK = { i: '?!', m: '?', b: '??' };
+
+/* ---------- seven-segment LCD ---------- */
+const SEGP = {
+  a: '1.3,1 2.3,0 9.7,0 10.7,1 9.7,2 2.3,2', g: '1.3,10 2.3,9 9.7,9 10.7,10 9.7,11 2.3,11', d: '1.3,19 2.3,18 9.7,18 10.7,19 9.7,20 2.3,20',
+  f: '1,1.3 2,2.3 2,8.7 1,9.7 0,8.7 0,2.3', b: '11,1.3 12,2.3 12,8.7 11,9.7 10,8.7 10,2.3',
+  e: '1,10.3 2,11.3 2,17.7 1,18.7 0,17.7 0,11.3', c: '11,10.3 12,11.3 12,17.7 11,18.7 10,17.7 10,11.3'
+};
+const SEG = { '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg', '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg', '-': 'g', ' ': '', '?': 'abeg', 'E': 'adefg', 'L': 'def', 'O': 'abcdef' };
+function lcdSVG(text) {
+  let x = 1.5, parts = '';
+  for (const ch of String(text)) {
+    if (ch === ':' || ch === '.') {
+      parts += ch === ':' ? `<rect x="${x + 0.6}" y="5" width="2" height="2"/><rect x="${x}" y="13" width="2" height="2"/>` : `<rect x="${x}" y="18" width="2" height="2"/>`;
+      x += 5; continue;
+    }
+    const on = SEG[ch] || '';
+    for (const s of 'abcdefg') parts += `<polygon points="${SEGP[s]}" transform="translate(${x} 0)"${on.includes(s) ? '' : ' class="off"'}/>`;
+    x += 15;
+  }
+  const w = x - 3 + 1.5;
+  return `<svg viewBox="0 0 ${w} 20" width="${w}" height="20" aria-hidden="true" fill="currentColor"><g transform="skewX(-6) translate(1 0)">${parts}</g></svg>`;
+}
+function setLCD(el, text, label) {
+  if (el._t !== text) { el.innerHTML = lcdSVG(text); el._t = text; }
+  el.setAttribute('role', 'img');
+  el.setAttribute('aria-label', label || String(text));
+}
+
+/* ---------- storage ---------- */
+const KEY = 'gte:v1';
+let persist = true, warned = false;
+function defStore() { return { v: 1, settings: { theme: 'auto', level: 'standard', pace: 'real', sound: false }, history: [], daily: {}, practice: { streak: 0, best: 0, seen: [] }, bestDaily: null }; }
+function loadStore() {
+  const d = defStore();
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return d;
+    const s = JSON.parse(raw);
+    if (!s || s.v !== 1) { persist = false; return d; }
+    return { v: 1, settings: Object.assign(d.settings, s.settings || {}), history: Array.isArray(s.history) ? s.history : [], daily: s.daily || {}, practice: Object.assign(d.practice, s.practice || {}), bestDaily: s.bestDaily || null };
+  } catch (e) { persist = false; warn(); return d; }
+}
+function save() {
+  if (!persist) return;
+  try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { persist = false; warn(); }
+}
+function warn() { if (warned) return; warned = true; const n = $('notice'); if (n) n.hidden = false; }
+let store = loadStore();
+
+/* ---------- dates ---------- */
+function localDate(d = new Date()) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function prettyDate(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); }
+
+/* ---------- sound ---------- */
+let actx = null;
+function sfx(kind) {
+  if (!store.settings.sound) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = actx.currentTime;
+    if (kind === 'reveal') {
+      [[659.25, 0], [880, 0.12]].forEach(([f, dt]) => {
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t + dt); g.gain.exponentialRampToValueAtTime(0.18, t + dt + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.5);
+        o.connect(g).connect(actx.destination); o.start(t + dt); o.stop(t + dt + 0.55);
+      });
+      return;
+    }
+    const len = 0.06, buf = actx.createBuffer(1, Math.floor(actx.sampleRate * len), actx.sampleRate), ch = buf.getChannelData(0);
+    for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / ch.length, 6);
+    const src = actx.createBufferSource(), bp = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = buf; bp.type = 'bandpass'; bp.frequency.value = kind === 'cap' ? 900 : 1700; bp.Q.value = 2.5;
+    g.gain.value = kind === 'cap' ? 1.6 : 0.9;
+    src.connect(bp).connect(g).connect(actx.destination); src.start(t);
+  } catch (e) { /* audio unavailable */ }
+}
+
+/* ---------- app state ---------- */
+let DATA = null, GAMES = [], BYID = new Map();
+let view = 'loading';
+let R = null;              // current round
+let session = { you: 0, model: 0 };
+let revealAnim = null;     // {finish}
+
+function showView(v) {
+  view = v;
+  for (const s of document.querySelectorAll('.view')) s.hidden = s.id !== 'v-' + v;
+  for (const b of document.querySelectorAll('[data-nav]')) {
+    const cur = b.dataset.nav === v || (b.dataset.nav === 'home' && (v === 'game' || v === 'summary'));
+    if (cur) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  }
+  if (v !== 'game') stopPlay();
+  window.scrollTo(0, 0);
+}
+
+/* ---------- theme + sound toggles ---------- */
+function applyTheme() {
+  const t = store.settings.theme;
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  else document.documentElement.removeAttribute('data-theme');
+  $('thm').textContent = 'Theme: ' + (t === 'light' ? 'Light' : t === 'dark' ? 'Dark' : 'Auto');
+}
+function applySound() {
+  $('snd').textContent = store.settings.sound ? 'Sound on' : 'Sound off';
+  $('snd').setAttribute('aria-pressed', String(!!store.settings.sound));
+}
+$('thm').addEventListener('click', () => {
+  const order = ['auto', 'light', 'dark'];
+  store.settings.theme = order[(order.indexOf(store.settings.theme) + 1) % 3];
+  applyTheme(); save();
+});
+$('snd').addEventListener('click', () => { store.settings.sound = !store.settings.sound; applySound(); save(); if (store.settings.sound) sfx('move'); });
+$('notice-x').addEventListener('click', () => { $('notice').hidden = true; });
+for (const b of document.querySelectorAll('[data-nav]')) b.addEventListener('click', () => go(b.dataset.nav));
+$('brand').addEventListener('click', () => go('home'));
+function go(v) {
+  if (!DATA) return;
+  if (v === 'home') renderHome();
+  if (v === 'stats') renderStats('all');
+  if (v === 'about') renderAbout();
+  showView(v);
+}
+
+/* ---------- segmented controls ---------- */
+function seg(el, opts, cur, onPick) {
+  el.innerHTML = '';
+  for (const [k, label] of opts) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(k === cur)); b.textContent = label; b.dataset.k = k;
+    b.tabIndex = k === cur ? 0 : -1;
+    b.addEventListener('click', () => onPick(k));
+    b.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault(); e.stopPropagation();
+      const keys = opts.map(o => o[0]); const i = keys.indexOf(k);
+      const nk = keys[(i + (e.key === 'ArrowRight' ? 1 : keys.length - 1)) % keys.length];
+      onPick(nk);
+      const nb = el.querySelector(`[data-k="${nk}"]`); if (nb) nb.focus();
+    });
+    el.appendChild(b);
+  }
+}
+
+/* ---------- home ---------- */
+function dailyFor(date) { return store.daily[date] || { n: E.dailyNumber(date), rounds: [] }; }
+function renderHome() {
+  const today = localDate(), no = E.dailyNumber(today), st = store.daily[today];
+  $('hd-title').textContent = 'Daily #' + no + ' · ' + prettyDate(today);
+  const act = $('hd-act'); act.innerHTML = '';
+  $('home-copy').hidden = true;
+  if (st && st.rounds.length >= 5) {
+    const tot = st.rounds.reduce((t, r) => t + r.s, 0);
+    const mean = Math.round(st.rounds.reduce((t, r) => t + Math.abs(r.g - r.a), 0) / 5);
+    const t = E.tally(st.rounds.map(r => ({ err: Math.abs(r.g - r.a), merr: Math.abs(r.m - r.a) })));
+    act.innerHTML = `<div class="dstat"><span><b>${fmtInt(tot)}</b> <span class="muted">/ 5,000</span></span><span class="muted">mean error <span class="mono">${mean}</span></span><span class="muted">You ${half(t.you)} – ${half(t.model)} Model</span></div>
+      <div class="btns"><button type="button" class="btn" id="hd-view">View result</button><button type="button" class="btn primary" id="hd-copy">Copy result</button></div>`;
+    $('hd-view').onclick = () => renderSummary(today);
+    $('hd-copy').onclick = () => copyText(E.shareText(no, today, st.rounds), $('home-copy'), $('hd-copy'));
+    $('hd-sub').textContent = 'Done for today. A new set of five arrives at midnight.';
+  } else {
+    const k = st ? st.rounds.length : 0;
+    act.innerHTML = `<button type="button" class="btn primary" id="hd-play">${k ? 'Resume, round ' + (k + 1) + ' of 5' : 'Play today’s five'}</button>`;
+    $('hd-play').onclick = () => startDaily(today);
+    $('hd-sub').textContent = 'Five games, the same for everyone today, with standard assists. Up to 5,000 points.';
+  }
+  const lvl = store.settings.level;
+  seg($('lvl-seg'), Object.entries(LEVELS), lvl, k => { store.settings.level = k; save(); renderHome(); });
+  $('hp-desc').textContent = LEVEL_DESC[lvl];
+  $('hp-streak').textContent = 'Streak ' + store.practice.streak + ' · Best ' + store.practice.best;
+  const avgs = GAMES.map(g => (g.w + g.b) / 2);
+  $('home-foot').textContent = `${fmtInt(GAMES.length)} rated games from ${monthName(DATA.meta.month)}, average ratings ${fmtInt(Math.floor(Math.min(...avgs) / 100) * 100)} to ${fmtInt(Math.ceil(Math.max(...avgs) / 100) * 100)}, spread evenly. A streak counts guesses within 150 points.`;
+}
+function monthName(m) { const [y, mo] = m.split('-').map(Number); return new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); }
+$('hp-start').addEventListener('click', () => { session = { you: 0, model: 0 }; startPractice(); });
+
+/* ---------- starting rounds ---------- */
+function startDaily(date) {
+  const ids = E.dailyIds(GAMES.map(g => g.id), date);
+  const st = dailyFor(date);
+  if (st.rounds.length >= 5) { renderSummary(date); return; }
+  startRound({ mode: 'd', level: 'standard', game: BYID.get(ids[st.rounds.length]), date, index: st.rounds.length });
+}
+function startPractice() {
+  const today = localDate();
+  const ban = new Set(E.dailyIds(GAMES.map(g => g.id), today));
+  let seen = new Set(store.practice.seen);
+  let pool = GAMES.filter(g => !seen.has(g.id) && !ban.has(g.id));
+  if (!pool.length) { store.practice.seen = []; seen = new Set(); pool = GAMES.filter(g => !ban.has(g.id)); }
+  const g = pool[Math.floor(Math.random() * pool.length)];
+  startRound({ mode: 'p', level: store.settings.level, game: g });
+}
+
+function prep(g) {
+  const uci = g.uci.split(' '), san = g.san.split(' ');
+  const { boards, moves } = E.replay(uci);
+  const [bm, inc] = g.tc.split('+').map(Number);
+  const n = uci.length;
+  const think = g.clk.map((c, i) => i < 2 ? Math.max(0, bm - c) : Math.max(0, g.clk[i - 2] - c + inc));
+  const wc = [bm], bc = [bm];
+  for (let p = 1; p <= n; p++) {
+    const i = p - 1;
+    wc.push(i % 2 === 0 ? g.clk[i] : wc[p - 1]);
+    bc.push(i % 2 === 1 ? g.clk[i] : bc[p - 1]);
+  }
+  const endWp = g.result === '1-0' ? 100 : g.result === '0-1' ? 0 : 50;
+  const wp = [E.winPct(15)].concat(g.ev.map(v => v === null ? endWp : E.winPct(v)));
+  const check = san.map(s => /[+#]$/.test(s));
+  return { uci, san, boards, moves, n, base: bm, inc, think, wc, bc, wp, check };
+}
+
+function startRound(o) {
+  stopPlay(); finishReveal(true);
+  const g = o.game;
+  R = Object.assign({}, o, prep(g), { ply: 0, playing: false, timer: 0, guess: null, revealed: false, flipped: false, clockRun: 0 });
+  if (R.level === 'blind' && store.settings.pace === 'real') store.settings.pace = 'steady';
+  buildGameChrome();
+  renderMoves();
+  renderGuessPanel();
+  goto(0, {});
+  showView('game');
+  if (o.review) { goto(R.n, {}); showReveal(true); return; }
+  setTimeout(() => { if (R && !R.revealed && R.ply === 0 && view === 'game') play(); }, 700);
+}
+
+/* ---------- game chrome ---------- */
+function buildGameChrome() {
+  const lvl = R.level;
+  const left = R.mode === 'd' ? `Daily #${E.dailyNumber(R.date)} · Round ${R.index + 1} of 5` : `Practice · ${LEVELS[lvl]} · Streak ${store.practice.streak}`;
+  $('rh-l').textContent = R.review ? `Daily #${E.dailyNumber(R.date)} · Review round ${R.index + 1}` : left;
+  const base = R.base % 60 === 0 ? R.base / 60 : +(R.base / 60).toFixed(1);
+  $('rh-r').textContent = lvl === 'blind' && !R.review ? '' : `${CLS[R.game.cls]} ${base}+${R.inc}`;
+  $('evalbar').hidden = lvl !== 'assisted';
+  const paces = Object.entries(PACES).filter(([k]) => !(lvl === 'blind' && k === 'real'));
+  seg($('pace-seg'), paces, store.settings.pace, k => { store.settings.pace = k; save(); seg($('pace-seg'), paces, k, arguments.callee); });
+  $('scrub').max = R.n; $('scrub').value = 0;
+  buildBars();
+}
+function paceSeg() {
+  const paces = Object.entries(PACES).filter(([k]) => !(R.level === 'blind' && k === 'real'));
+  const pick = k => { store.settings.pace = k; save(); seg($('pace-seg'), paces, k, pick); if (R.playing) { stopPlay(); play(); } };
+  seg($('pace-seg'), paces, store.settings.pace, pick);
+}
+function barHTML(side) {
+  const w = side === 'w';
+  return `<span class="sw ${side}"></span><span class="pname">${w ? 'White' : 'Black'}</span><span class="prate mono" data-r="${side}">????</span><span class="pmat mono" data-m="${side}"></span>` +
+    (R.level === 'blind' && !R.review ? '' : `<span class="lcd clk" data-c="${side}"></span>`);
+}
+function buildBars() {
+  const top = R.flipped ? 'w' : 'b', bot = R.flipped ? 'b' : 'w';
+  $('bar-top').innerHTML = barHTML(top); $('bar-top').dataset.side = top;
+  $('bar-bot').innerHTML = barHTML(bot); $('bar-bot').dataset.side = bot;
+  if (R.revealed) fillRatings();
+}
+function fillRatings() {
+  for (const el of document.querySelectorAll('[data-r]')) { el.textContent = el.dataset.r === 'w' ? R.game.w : R.game.b; el.classList.add('known'); }
+}
+function fmtClock(s) {
+  s = Math.max(0, Math.round(s));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`;
+}
+function fmtThink(s) { return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`; }
+function setClock(side, secs, flag) {
+  const el = document.querySelector(`[data-c="${side}"]`);
+  if (!el) return;
+  const t = fmtClock(secs);
+  setLCD(el, t, `${side === 'w' ? 'White' : 'Black'} clock ${t}`);
+  let f = el.querySelector('.flag');
+  if (flag && !f) { el.insertAdjacentHTML('beforeend', '<svg class="flag" viewBox="0 0 16 16" aria-label="Flag fell"><path d="M3 15V2h1v1l9 3-9 3v6z" fill="currentColor"/></svg>'); }
+  if (!flag && f) f.remove();
+}
+
+/* ---------- board ---------- */
+function sqXY(sq) {
+  const f = sq % 8, r = Math.floor(sq / 8);
+  return R.flipped ? [7 - f, r] : [f, 7 - r];
+}
+function drawBoard(animDir) {
+  const p = R.ply, b = R.boards[p];
+  const last = p > 0 ? R.moves[p - 1] : null;
+  let ck = -1;
+  if (p > 0 && R.check[p - 1]) { const k = p % 2 === 0 ? 'K' : 'k'; ck = b.indexOf(k); }
+  let sq = '';
+  for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
+    const f = R.flipped ? 7 - col : col, r = R.flipped ? row : 7 - row, i = r * 8 + f;
+    const dark = (f + r) % 2 === 0;
+    let cls = 'sq' + (dark ? ' d' : '');
+    if (last && (i === last.from || i === last.to)) cls += ' lm';
+    if (i === ck) cls += ' ck';
+    let c = '';
+    if (col === 0) c += `<span class="cr">${r + 1}</span>`;
+    if (row === 7) c += `<span class="cf">${'abcdefgh'[f]}</span>`;
+    sq += `<div class="${cls}">${c}</div>`;
+  }
+  $('sqs').innerHTML = sq;
+  let pcs = '';
+  for (let i = 0; i < 64; i++) {
+    const pc = b[i]; if (!pc) continue;
+    const [x, y] = sqXY(i);
+    const key = (pc === pc.toUpperCase() ? 'w' : 'b') + pc.toUpperCase();
+    pcs += `<img class="pc" data-sq="${i}" src="${PIECES[key]}" alt="" draggable="false" style="transform:translate(${x * 100}%,${y * 100}%)">`;
+  }
+  if (R.level === 'assisted' && p > 0) {
+    const m = R.game.mk[p - 1];
+    if (m !== '.') { const [x, y] = sqXY(last.to); pcs += `<div class="badge ${m}" style="transform:translate(${x * 100}%,${y * 100}%)"><span>${MARK[m]}</span></div>`; }
+  }
+  $('pcs').innerHTML = pcs;
+  if (animDir && !reduced()) {
+    const mv = animDir > 0 ? R.moves[p - 1] : R.moves[p];
+    const pairs = [[mv.from, mv.to]];
+    if (mv.rook) pairs.push([mv.rook.from, mv.rook.to]);
+    for (const [a, z] of pairs) {
+      const [src, dst] = animDir > 0 ? [a, z] : [z, a];
+      const el = $('pcs').querySelector(`[data-sq="${dst}"]`);
+      if (!el) continue;
+      const [sx, sy] = sqXY(src), [dx, dy] = sqXY(dst);
+      el.style.transition = 'none';
+      el.style.transform = `translate(${sx * 100}%,${sy * 100}%)`;
+      el.getBoundingClientRect();
+      el.style.transition = 'transform 140ms ease-out';
+      el.style.transform = `translate(${dx * 100}%,${dy * 100}%)`;
+    }
+  }
+}
+
+function endText() {
+  const g = R.game, res = g.result;
+  const win = res === '1-0' ? 'White' : res === '0-1' ? 'Black' : null, lose = res === '1-0' ? 'Black' : res === '0-1' ? 'White' : null;
+  const rs = res === '1/2-1/2' ? '½-½' : res;
+  switch (g.term) {
+    case 'mate': return `Checkmate · ${win} wins · ${rs}`;
+    case 'resign': return `${lose} resigned · ${rs}`;
+    case 'time': return win ? `${lose} lost on time · ${rs}` : `Time ran out, but no mating material · Draw`;
+    case 'stalemate': return 'Stalemate · Draw';
+    case 'insufficient': return 'Insufficient material · Draw';
+    case 'repetition': return 'Draw by repetition';
+    default: return 'Draw · ½-½';
+  }
+}
+
+function goto(p, opts) {
+  if (!R) return;
+  p = clamp(p, 0, R.n);
+  const dir = p - R.ply;
+  R.ply = p;
+  cancelClockRun();
+  drawBoard(opts.animate && Math.abs(dir) === 1 ? dir : 0);
+  // clocks
+  const atEnd = p === R.n, lostOnTime = atEnd && R.game.term === 'time';
+  const toMove = p % 2 === 0 ? 'w' : 'b';
+  setClock('w', R.wc[p], lostOnTime && toMove === 'w');
+  setClock('b', R.bc[p], lostOnTime && toMove === 'b');
+  for (const bar of [$('bar-top'), $('bar-bot')]) bar.classList.toggle('active', !atEnd && bar.dataset.side === toMove && R.level !== 'blind');
+  // material
+  const d = E.material(R.boards[p]);
+  for (const el of document.querySelectorAll('[data-m]')) {
+    const s = el.dataset.m;
+    el.textContent = (s === 'w' && d > 0) ? '+' + d : (s === 'b' && d < 0) ? '+' + (-d) : '';
+  }
+  // eval bar
+  if (R.level === 'assisted') {
+    const w = R.wp[p];
+    $('evalfill').style.height = w + '%';
+    $('evalbar').classList.toggle('flip', R.flipped);
+    $('evalbar').setAttribute('aria-label', 'White winning chances ' + Math.round(w) + '%');
+  }
+  // status
+  let st = '';
+  if (p === 0) st = 'Start position';
+  else if (atEnd) st = `<b>${moveLabel(p - 1)}</b> · ${esc(endText())}`;
+  else {
+    st = `<b>${moveLabel(p - 1)}</b>`;
+    if (R.level !== 'blind' || R.review) st += ` · ${(p - 1) % 2 === 0 ? 'White' : 'Black'} thought ${fmtThink(R.think[p - 1])}`;
+    if (R.level === 'assisted') st += ` · eval ${evalText(R.game.ev[p - 1])}`;
+  }
+  $('status').innerHTML = st;
+  // move list
+  const ml = $('moves');
+  const prev = ml.querySelector('.mv.cur'); if (prev) prev.classList.remove('cur');
+  const cur = ml.querySelector(`[data-ply="${p}"]`);
+  if (cur) {
+    cur.classList.add('cur');
+    if (narrow()) ml.scrollLeft = cur.offsetLeft - ml.clientWidth / 2 + cur.offsetWidth / 2;
+    else {
+      const top = cur.offsetTop, bot = top + cur.offsetHeight;
+      if (top < ml.scrollTop + 4) ml.scrollTop = top - 40; else if (bot > ml.scrollTop + ml.clientHeight - 4) ml.scrollTop = bot - ml.clientHeight + 40;
+    }
+  } else if (p === 0) { ml.scrollTop = 0; ml.scrollLeft = 0; }
+  $('scrub').value = p;
+  if (R.revealed) markGraph();
+  if (opts.sound) sfx(R.moves[p - 1] && R.moves[p - 1].captured ? 'cap' : 'move');
+}
+function moveLabel(i) { const num = Math.floor(i / 2) + 1; return i % 2 === 0 ? `${num}. ${esc(R.san[i])}` : `${num}… ${esc(R.san[i])}`; }
+function evalText(v) {
+  if (v === null) return R.game.term === 'mate' ? 'mate' : '0.0';
+  if (Math.abs(v) >= 9000) return (v > 0 ? '' : '-') + 'M' + (10000 - Math.abs(v));
+  return (v > 0 ? '+' : '') + (v / 100).toFixed(1);
+}
+
+function renderMoves() {
+  const showT = R.level !== 'blind' || R.review, showM = R.level === 'assisted' || (R.review && false);
+  let h = '';
+  for (let i = 0; i < R.n; i++) {
+    if (i % 2 === 0) h += `<span class="mn">${i / 2 + 1}.</span>`;
+    const m = R.game.mk[i];
+    const mk = showM && m !== '.' ? `<span class="mk ${m}">${MARK[m]}</span>` : '';
+    const tt = showT ? `<span class="tt">${fmtThink(R.think[i])}</span>` : '';
+    h += `<button type="button" class="mv" data-ply="${i + 1}" aria-label="${moveLabel(i).replace('…', '...')}">${esc(R.san[i])}${mk}${tt}</button>`;
+  }
+  if (R.n % 2 === 1) h += '<span></span>';
+  $('moves').innerHTML = h;
+}
+$('moves').addEventListener('click', e => { const b = e.target.closest('.mv'); if (b && !revealAnim) { stopPlay(); goto(+b.dataset.ply, { animate: true }); } });
+
+/* ---------- autoplay ---------- */
+function delayFor(i) {
+  const pace = store.settings.pace;
+  if (pace === 'fast') return 350;
+  if (pace === 'steady' || R.level === 'blind') return 800;
+  return clamp(300 + 250 * Math.sqrt(R.think[i] || 0), 300, 3000);
+}
+function setPlayIcon() {
+  $('t-play-i').innerHTML = R && R.playing ? '<path d="M5 4h4v12H5zM11 4h4v12h-4z" fill="currentColor"/>' : '<path d="M6 4l10 6-10 6z" fill="currentColor"/>';
+  $('t-play').setAttribute('aria-label', R && R.playing ? 'Pause' : 'Play');
+}
+function play() {
+  if (!R || revealAnim) return;
+  if (R.ply >= R.n) goto(0, {});
+  R.playing = true; setPlayIcon(); tick();
+}
+function stopPlay() {
+  if (!R) return;
+  R.playing = false; clearTimeout(R.timer); cancelClockRun(); setPlayIcon();
+}
+function tick() {
+  clearTimeout(R.timer);
+  if (!R.playing) return;
+  if (R.ply >= R.n) { stopPlay(); return; }
+  const i = R.ply, d = delayFor(i);
+  runClock(i, d);
+  R.timer = setTimeout(() => { if (!R.playing) return; goto(i + 1, { animate: true, sound: true }); tick(); }, d);
+}
+function runClock(i, d) {
+  if (R.level === 'blind' || reduced()) return;
+  const side = i % 2 === 0 ? 'w' : 'b';
+  const start = side === 'w' ? R.wc[i] : R.bc[i];
+  const end = Math.max(0, R.game.clk[i] - (i >= 2 ? R.inc : 0));
+  if (end >= start) return;
+  const t0 = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - t0) / d);
+    setClock(side, Math.ceil(start - (start - end) * k), false);
+    if (k < 1) R.clockRun = requestAnimationFrame(step);
+  };
+  R.clockRun = requestAnimationFrame(step);
+}
+function cancelClockRun() { if (R && R.clockRun) { cancelAnimationFrame(R.clockRun); R.clockRun = 0; } }
+const tb = (id, fn) => $(id).addEventListener('click', () => { if (!R || revealAnim) return; fn(); });
+tb('t-first', () => { stopPlay(); goto(0, {}); });
+tb('t-prev', () => { stopPlay(); goto(R.ply - 1, { animate: true }); });
+tb('t-next', () => { stopPlay(); goto(R.ply + 1, { animate: true, sound: true }); });
+tb('t-last', () => { stopPlay(); goto(R.n, {}); });
+tb('t-play', () => { R.playing ? stopPlay() : play(); });
+tb('t-flip', flip);
+function flip() { R.flipped = !R.flipped; buildBars(); goto(R.ply, {}); }
+$('scrub').addEventListener('input', e => { if (!R || revealAnim) return; stopPlay(); goto(+e.target.value, {}); });
+
+/* ---------- guess panel ---------- */
+function renderGuessPanel() {
+  const ticks = [1000, 1500, 2000, 2500, 3000].map(v => `<span style="left:${(v - 400) / 28}%">${v}</span>`).join('');
+  $('panel').innerHTML = `
+    <div class="gtop"><div class="lcd glcd" id="g-lcd"></div><div class="gband"><span class="eyebrow">Your guess, average rating</span><strong id="g-band">Not set</strong></div></div>
+    <div class="slider"><input type="range" id="g-range" class="unset" min="400" max="3200" step="25" value="1800" aria-label="Guess slider, 400 to 3200"><div class="ticks" aria-hidden="true">${ticks}</div></div>
+    <div class="grow"><input type="number" id="g-num" min="400" max="3200" step="1" inputmode="numeric" placeholder="Type a rating" aria-label="Guess as a number"><button type="button" class="btn primary" id="g-lock" disabled>Lock in</button></div>
+    <p class="hint">Lichess ratings. You can lock in at any move.</p>`;
+  setLCD($('g-lcd'), '----', 'No guess yet');
+  $('g-range').addEventListener('input', e => setGuess(+e.target.value, 'range'));
+  $('g-num').addEventListener('input', e => { const v = +e.target.value; if (e.target.value !== '' && v >= 400 && v <= 3200) setGuess(v, 'num'); });
+  $('g-num').addEventListener('change', e => { if (e.target.value !== '') setGuess(+e.target.value, 'chg'); });
+  $('g-num').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (e.target.value !== '') setGuess(+e.target.value, 'chg'); lockIn(); } });
+  $('g-lock').addEventListener('click', lockIn);
+}
+function setGuess(v, from) {
+  if (!R || R.revealed || !isFinite(v)) return;
+  v = clamp(Math.round(v), 400, 3200);
+  R.guess = v;
+  const rg = $('g-range');
+  if (from !== 'range') rg.value = v;
+  rg.classList.remove('unset');
+  if (from !== 'num') $('g-num').value = v;
+  setLCD($('g-lcd'), String(v).padStart(4, ' '), 'Your guess ' + v);
+  $('g-band').textContent = E.band(v);
+  $('g-lock').disabled = false;
+}
+function nudge(dv) { if (!R || R.revealed) return; setGuess((R.guess == null ? 1800 : R.guess) + dv, 'key'); }
+function lockIn() { if (!R || R.revealed || R.guess == null || R.review) return; reveal(); }
+
+/* ---------- reveal ---------- */
+function reveal() {
+  const g = R.game, a = Math.round((g.w + g.b) / 2), guess = R.guess;
+  const err = Math.abs(guess - a), s = E.score(err), merr = Math.abs(g.model - a);
+  R.revealed = true; stopPlay();
+  R.result = { g: guess, a, m: g.model, s, err, merr };
+  const today = localDate();
+  store.history.push({ id: g.id, g: guess, a, m: g.model, lvl: R.level, mode: R.mode, d: R.mode === 'd' ? R.date : today });
+  if (store.history.length > 500) store.history.splice(0, store.history.length - 500);
+  if (R.mode === 'p') {
+    store.practice.streak = E.isHit(err) ? store.practice.streak + 1 : 0;
+    store.practice.best = Math.max(store.practice.best, store.practice.streak);
+    store.practice.seen.push(g.id);
+    if (store.practice.seen.length > 300) store.practice.seen.splice(0, store.practice.seen.length - 300);
+    if (err < merr) session.you += 1; else if (err > merr) session.model += 1; else { session.you += 0.5; session.model += 0.5; }
+  } else {
+    const st = store.daily[R.date] || (store.daily[R.date] = { n: E.dailyNumber(R.date), rounds: [] });
+    if (st.rounds.length === R.index) st.rounds.push({ id: g.id, g: guess, a, m: g.model, s });
+    if (st.rounds.length >= 5) {
+      const tot = st.rounds.reduce((t, r) => t + r.s, 0);
+      if (!store.bestDaily || tot > store.bestDaily.score) store.bestDaily = { score: tot, date: R.date };
+    }
+    const keys = Object.keys(store.daily).sort();
+    while (keys.length > 60) delete store.daily[keys.shift()];
+  }
+  save();
+  sfx('reveal');
+  showReveal(false);
+}
+function matchLine() {
+  if (R.mode === 'p') return `You ${half(session.you)} – ${half(session.model)} Model this session`;
+  const st = store.daily[R.date];
+  const rs = (st ? st.rounds : []).map(r => ({ err: Math.abs(r.g - r.a), merr: Math.abs(r.m - r.a) }));
+  const t = E.tally(rs);
+  return `You ${half(t.you)} – ${half(t.model)} Model today`;
+}
+function pos(v) { return clamp((v - 400) / 28, 0, 100); }
+function showReveal(instant) {
+  const g = R.game;
+  if (R.review) {
+    const a = Math.round((g.w + g.b) / 2);
+    R.revealed = true;
+    R.result = { g: R.review.g, a, m: g.model, s: E.score(Math.abs(R.review.g - a)), err: Math.abs(R.review.g - a), merr: Math.abs(g.model - a) };
+    R.guess = R.review.g;
+    renderMoves(); goto(R.ply, {});
+  }
+  const r = R.result;
+  const diff = r.merr - r.err;
+  const verdict = diff > 0 ? `You were closer by <b class="mono">${diff}</b>` : diff < 0 ? `The model was closer by <b class="mono">${-diff}</b>` : 'Level with the model';
+  const ticks = [1000, 1500, 2000, 2500, 3000].map(v => `<span class="tk" style="left:${pos(v)}%">${v}</span>`).join('');
+  const nextLabel = R.review ? 'Back to summary' : R.mode === 'd' ? (R.index >= 4 ? 'See today’s result' : 'Next game') : 'Next game';
+  const base = R.base % 60 === 0 ? R.base / 60 : +(R.base / 60).toFixed(1);
+  const marks = (side) => g.cnt[side].join(' / ');
+  $('panel').innerHTML = `
+  <div class="rv" id="rv">
+    <div class="rv-head"><div class="lcd glcd" id="rv-lcd"></div><div class="gband"><span class="eyebrow">Average rating</span><strong class="st st2">${E.band(r.a)}</strong><span class="mono muted st st2" style="font-size:13px">White ${g.w} · Black ${g.b}</span></div></div>
+    <div class="scale" aria-hidden="true"><div class="track"></div>${ticks}
+      <div class="mkr act" id="mk-act" style="left:${pos(r.g)}%"><span>Actual</span><i></i></div>
+      <div class="mkr you" style="left:${pos(r.g)}%"><i></i><span>You</span></div>
+      <div class="mkr mod st st4" style="left:${pos(r.m)}%"><i></i><span>Model</span></div>
+    </div>
+    <div class="rv-score st st3"><span><span class="n" id="rv-err">0</span> <span class="u">off</span></span><span><span class="n" id="rv-pts">0</span> <span class="u">/ 1,000 points</span></span>${r.err <= 25 ? '<span class="bull">Bullseye</span>' : ''}</div>
+    <div class="verdict st st4">The model guessed <b class="mono">${fmtInt(r.m)}</b>. ${verdict}.<br><span class="muted">${matchLine()}${R.mode === 'p' && !R.review ? ' · Streak ' + store.practice.streak : ''}</span></div>
+    <div class="st st5" style="display:grid;gap:10px">
+      <dl class="facts">
+        <dt>Accuracy (est.)</dt><dd>W ${g.acc[0].toFixed(1)}% · B ${g.acc[1].toFixed(1)}%</dd>
+        <dt>Inacc. / mist. / blund.</dt><dd>W ${marks('w')} · B ${marks('b')}</dd>
+        <dt>Opening</dt><dd class="txt">${esc(g.eco)} ${esc(g.opening)}</dd>
+        <dt>Time control</dt><dd class="txt">${CLS[g.cls]} ${base}+${R.inc}</dd>
+        <dt>Ended</dt><dd class="txt">${esc(endText())}, move ${Math.ceil(R.n / 2)}</dd>
+      </dl>
+      <div>${graphSVG()}</div>
+      <div class="legend"><em>White's winning chances by move</em><span class="i">inaccuracy</span><span class="m">mistake</span><span class="b">blunder</span></div>
+      <div class="rv-act"><button type="button" class="btn primary" id="rv-next">${nextLabel}</button><a class="btn" href="https://lichess.org/${encodeURIComponent(g.id)}" target="_blank" rel="noopener">Analyse on Lichess</a></div>
+    </div>
+  </div>`;
+  $('rv-next').addEventListener('click', nextRound);
+  $('rv-graph').addEventListener('click', e => {
+    const box = e.currentTarget.getBoundingClientRect();
+    goto(Math.round(clamp((e.clientX - box.left) / box.width, 0, 1) * R.n), {});
+  });
+  // Assisted marks + think times become visible after reveal in every level
+  if (R.level !== 'assisted') { R.showMarksAfter = true; }
+  revealMovesExtras();
+  markGraph();
+  const rv = $('rv'), lcd = $('rv-lcd');
+  const finish = () => {
+    for (const t of R.timers || []) clearTimeout(t);
+    if (R.raf) cancelAnimationFrame(R.raf);
+    rv.classList.add('s2', 's3', 's4', 's5');
+    $('mk-act').style.transition = 'none'; $('mk-act').style.left = pos(r.a) + '%';
+    setLCD(lcd, String(r.a).padStart(4, ' '), 'Average rating ' + r.a);
+    $('rv-err').textContent = r.err; $('rv-pts').textContent = fmtInt(r.s);
+    fillRatings();
+    revealAnim = null;
+    if (!R.review) $('rv-next').focus({ preventScroll: true });
+  };
+  if (instant || reduced()) { finish(); return; }
+  revealAnim = { finish };
+  R.timers = [];
+  setLCD(lcd, String(r.g).padStart(4, ' '), 'Average rating');
+  const t0 = performance.now();
+  const count = (el, from, to, ms, fmt) => new Promise(res => {
+    const s0 = performance.now();
+    const f = now => { const k = Math.min(1, (now - s0) / ms), e = 1 - Math.pow(1 - k, 3); el(fmt(Math.round(from + (to - from) * e))); if (k < 1) R.raf = requestAnimationFrame(f); else res(); };
+    R.raf = requestAnimationFrame(f);
+  });
+  requestAnimationFrame(() => { $('mk-act').style.left = pos(r.a) + '%'; });
+  count(v => setLCD(lcd, String(v).padStart(4, ' '), 'Average rating'), r.g, r.a, 800, x => x);
+  R.timers.push(setTimeout(() => { rv.classList.add('s2'); fillRatings(); }, 800));
+  R.timers.push(setTimeout(() => {
+    rv.classList.add('s3');
+    count(v => { $('rv-err').textContent = v; }, 0, r.err, 300, x => x);
+    const s1 = performance.now();
+    const f2 = now => { const k = Math.min(1, (now - s1) / 300); $('rv-pts').textContent = fmtInt(r.s * k); if (k < 1) requestAnimationFrame(f2); };
+    requestAnimationFrame(f2);
+  }, 1100));
+  R.timers.push(setTimeout(() => rv.classList.add('s4'), 1500));
+  R.timers.push(setTimeout(finish, 1900));
+}
+function finishReveal(silent) { if (revealAnim) revealAnim.finish(); }
+function revealMovesExtras() {
+  // after the reveal, show think times and quality marks in the list for every level
+  const items = $('moves').querySelectorAll('.mv');
+  items.forEach((b, i) => {
+    if (!b.querySelector('.mk')) { const m = R.game.mk[i]; if (m !== '.') b.insertAdjacentHTML('beforeend', `<span class="mk ${m}">${MARK[m]}</span>`); }
+    if (!b.querySelector('.tt')) b.insertAdjacentHTML('beforeend', `<span class="tt">${fmtThink(R.think[i])}</span>`);
+    const tt = b.querySelector('.tt'); if (tt && b.lastElementChild !== tt) b.appendChild(tt);
+  });
+  if (R.level === 'blind' && !document.querySelector('[data-c]')) {
+    for (const bar of [$('bar-top'), $('bar-bot')]) bar.insertAdjacentHTML('beforeend', `<span class="lcd clk" data-c="${bar.dataset.side}"></span>`);
+    const base = R.base % 60 === 0 ? R.base / 60 : +(R.base / 60).toFixed(1);
+    $('rh-r').textContent = `${CLS[R.game.cls]} ${base}+${R.inc}`;
+  }
+  R.levelShown = 'review';
+}
+function graphSVG() {
+  const W = 360, H = 90, n = R.n;
+  const x = i => (i / n) * W, y = w => H - (w / 100) * H;
+  let d = `M0,${H} `;
+  R.wp.forEach((w, i) => { d += `L${x(i).toFixed(1)},${y(w).toFixed(1)} `; });
+  d += `L${W},${H} Z`;
+  let dots = '';
+  for (let i = 0; i < n; i++) { const m = R.game.mk[i]; if (m !== '.') dots += `<circle class="dot-${m}" cx="${x(i + 1).toFixed(1)}" cy="${y(R.wp[i + 1]).toFixed(1)}" r="${m === 'b' ? 3.6 : 2.8}"/>`; }
+  return `<svg class="graph" id="rv-graph" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evaluation graph. Click to jump to a move."><path class="area" d="${d}"/><line class="mid" x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}"/><line class="cur" id="g-cur" x1="0" y1="0" x2="0" y2="${H}"/>${dots}</svg>`;
+}
+function markGraph() {
+  const c = $('g-cur'); if (!c) return;
+  const xx = (R.ply / R.n) * 360; c.setAttribute('x1', xx); c.setAttribute('x2', xx);
+  if (R.level !== 'assisted') { // eval bar not shown before; show it now
+    $('evalbar').hidden = false; $('evalfill').style.height = R.wp[R.ply] + '%'; $('evalbar').classList.toggle('flip', R.flipped);
+  }
+}
+function nextRound() {
+  if (!R) return;
+  if (R.review) { renderSummary(R.date); return; }
+  if (R.mode === 'p') { startPractice(); return; }
+  const st = store.daily[R.date];
+  if (!st || st.rounds.length >= 5) { renderSummary(R.date); return; }
+  startDaily(R.date);
+}
+
+/* ---------- summary ---------- */
+function renderSummary(date) {
+  const st = store.daily[date];
+  if (!st) { go('home'); return; }
+  const no = E.dailyNumber(date);
+  const tot = st.rounds.reduce((t, r) => t + r.s, 0);
+  const mean = Math.round(st.rounds.reduce((t, r) => t + Math.abs(r.g - r.a), 0) / Math.max(1, st.rounds.length));
+  const t = E.tally(st.rounds.map(r => ({ err: Math.abs(r.g - r.a), merr: Math.abs(r.m - r.a) })));
+  const rows = st.rounds.map((r, i) => `<tr><td>${i + 1}</td><td>${Math.abs(r.g - r.a)}</td><td>${fmtInt(r.s)}</td><td>${r.a}</td><td>${r.g}</td><td>${r.m}</td><td><button type="button" class="linkbtn" data-rev="${i}">Review</button></td></tr>`).join('');
+  $('sum').innerHTML = `
+    <div><div class="eyebrow">Daily #${no} · ${prettyDate(date)}</div><h1>Today’s result</h1></div>
+    <div class="figs">
+      <div class="fig"><span class="v">${fmtInt(tot)}</span><span class="k">points of 5,000</span></div>
+      <div class="fig"><span class="v">${mean}</span><span class="k">mean error, rating points</span></div>
+      <div class="fig"><span class="v">${half(t.you)}–${half(t.model)}</span><span class="k">you against the model</span></div>
+    </div>
+    <div class="tbl-wrap"><table><thead><tr><th>Round</th><th>Off by</th><th>Points</th><th>Actual</th><th>You</th><th>Model</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="rv-act"><button type="button" class="btn primary" id="sum-copy">Copy result</button><button type="button" class="btn" id="sum-prac">Play practice</button></div>
+    <textarea class="copybox" id="sum-box" readonly hidden aria-label="Result text"></textarea>`;
+  $('sum-copy').onclick = () => copyText(E.shareText(no, date, st.rounds), $('sum-box'), $('sum-copy'));
+  $('sum-prac').onclick = () => { session = { you: 0, model: 0 }; startPractice(); };
+  for (const b of $('sum').querySelectorAll('[data-rev]')) b.onclick = () => {
+    const i = +b.dataset.rev, rr = st.rounds[i];
+    startRound({ mode: 'd', level: 'standard', game: BYID.get(rr.id), date, index: i, review: { g: rr.g } });
+  };
+  showView('summary');
+}
+function copyText(text, box, btn) {
+  const fallback = () => { box.hidden = false; box.value = text; box.focus(); box.select(); btn.textContent = 'Select and copy'; };
+  try {
+    navigator.clipboard.writeText(text).then(() => { btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = 'Copy result'; }, 1600); }, fallback);
+  } catch (e) { fallback(); }
+}
+
+/* ---------- stats ---------- */
+function renderStats(filter) {
+  const h = store.history.filter(x => filter === 'all' || x.lvl === filter);
+  const n = h.length;
+  const errs = h.map(x => Math.abs(x.g - x.a));
+  const mae = n ? Math.round(errs.reduce((a, b) => a + b, 0) / n) : null;
+  const within = n ? Math.round(100 * errs.filter(e => e <= 150).length / n) : null;
+  const bias = n ? Math.round(h.reduce((t, x) => t + (x.g - x.a), 0) / n) : 0;
+  const t = E.tally(h.map(x => ({ err: Math.abs(x.g - x.a), merr: Math.abs(x.m - x.a) })));
+  const modelMae = n ? Math.round(h.reduce((t2, x) => t2 + Math.abs(x.m - x.a), 0) / n) : null;
+  let biasLine = 'Make 5 guesses to see whether you tend to rate players too high or too low.';
+  if (n >= 5) biasLine = Math.abs(bias) < 15 ? 'You have no clear lean: your misses are balanced between too high and too low.' : `You rate players <b class="mono">${Math.abs(bias)}</b> points too ${bias > 0 ? 'high' : 'low'} on average.`;
+  const fig = (v, k) => `<div class="fig"><span class="v">${v}</span><span class="k">${k}</span></div>`;
+  $('stats').innerHTML = `
+    <div><div class="eyebrow">Your record, kept in this browser</div><h1>Stats</h1></div>
+    <div class="seg" role="radiogroup" aria-label="Assist level filter" id="st-seg"></div>
+    ${n === 0 ? '<p class="muted">No guesses yet. Play a daily or a practice game and your record builds here.</p>' : `
+    <div class="figs">
+      ${fig(fmtInt(n), 'guesses')}
+      ${fig(mae, 'mean error, rating points')}
+      ${fig(within + '%', 'within 150 points')}
+      ${fig(half(t.you) + '–' + half(t.model), 'you against the model')}
+      ${fig(store.bestDaily ? fmtInt(store.bestDaily.score) : '–', 'best daily, of 5,000')}
+      ${fig(store.practice.best, 'best practice streak')}
+    </div>
+    <p>${biasLine} <span class="muted">On the same games the model’s mean error was ${modelMae}.</span></p>
+    <div class="charts">
+      <div class="chart"><h3>Calibration</h3><p class="muted" style="margin:0;font-size:13px">Each dot is one guess. Dots above the dashed line are guesses that were too high.</p>${scatterSVG(h)}</div>
+      <div class="chart"><h3>Error by rating band</h3><p class="muted" style="margin:0;font-size:13px">Your mean error on games whose real average fell in each band.</p>${bandSVG(h)}</div>
+    </div>`}
+    <div><button type="button" class="btn small" id="st-reset">Reset stats</button></div>`;
+  seg($('st-seg'), [['all', 'All'], ['blind', 'Blind'], ['standard', 'Standard'], ['assisted', 'Assisted']], filter, k => renderStats(k));
+  const rb = $('st-reset');
+  rb.onclick = () => {
+    if (rb.dataset.armed) {
+      store.history = []; store.daily = {}; store.practice = { streak: 0, best: 0, seen: [] }; store.bestDaily = null; save(); renderStats('all');
+      return;
+    }
+    rb.dataset.armed = '1'; rb.textContent = 'Confirm reset'; rb.classList.add('primary');
+    setTimeout(() => { if (rb.isConnected) { delete rb.dataset.armed; rb.textContent = 'Reset stats'; rb.classList.remove('primary'); } }, 4000);
+  };
+}
+function scatterSVG(h) {
+  const S = 320, P = 50, lo = 400, hi = 3200, sc = v => P + ((v - lo) / (hi - lo)) * (S - P - 8);
+  const ys = v => S - P - ((v - lo) / (hi - lo)) * (S - P - 8) + 0;
+  let g = '';
+  for (const v of [1000, 1500, 2000, 2500, 3000]) {
+    g += `<line class="ax" x1="${sc(v)}" y1="${8}" x2="${sc(v)}" y2="${S - P}" opacity=".5"/><line class="ax" x1="${P}" y1="${ys(v)}" x2="${S - 8}" y2="${ys(v)}" opacity=".5"/>`;
+    g += `<text class="lbl" x="${sc(v)}" y="${S - P + 14}" text-anchor="middle">${v}</text><text class="lbl" x="${P - 4}" y="${ys(v) + 3}" text-anchor="end">${v}</text>`;
+  }
+  g += `<line class="diag" x1="${sc(lo)}" y1="${ys(lo)}" x2="${sc(hi)}" y2="${ys(hi)}"/>`;
+  for (const x of h.slice(-300)) g += `<circle class="pt" cx="${sc(clamp(x.a, lo, hi)).toFixed(1)}" cy="${ys(clamp(x.g, lo, hi)).toFixed(1)}" r="3.5"/>`;
+  g += `<text class="lbl" x="${(S + P) / 2}" y="${S - 4}" text-anchor="middle">actual average rating</text>`;
+  g += `<text class="lbl" x="10" y="${(S - P) / 2}" text-anchor="middle" transform="rotate(-90 10 ${(S - P) / 2})">your guess</text>`;
+  return `<svg viewBox="0 0 ${S} ${S}" role="img" aria-label="Scatter of your guesses against the actual ratings">${g}</svg>`;
+}
+function bandSVG(h) {
+  const rows = E.BANDS.map(([lo, name], i) => {
+    const hiB = i + 1 < E.BANDS.length ? E.BANDS[i + 1][0] : 99999;
+    const xs = h.filter(x => x.a >= lo && x.a < hiB).map(x => Math.abs(x.g - x.a));
+    return { name, n: xs.length, m: xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null };
+  });
+  const max = Math.max(300, ...rows.map(r => r.m || 0));
+  const W = 340, rowH = 30, L = 92, Rr = 70;
+  let g = '';
+  rows.forEach((r, i) => {
+    const y = i * rowH + 6, w = r.m == null ? 0 : ((W - L - Rr) * r.m) / max;
+    g += `<text class="bl" x="0" y="${y + 13}">${r.name}</text><rect class="bbg" x="${L}" y="${y + 3}" width="${W - L - Rr}" height="12" rx="1"/>`;
+    if (r.m != null) g += `<rect class="bb" x="${L}" y="${y + 3}" width="${w.toFixed(1)}" height="12" rx="1"/>`;
+    g += `<text class="lbl" x="${W - Rr + 6}" y="${y + 13}">${r.m == null ? 'no games' : r.m + '  n=' + r.n}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${rows.length * rowH + 8}" role="img" aria-label="Mean error by rating band">${g}</svg>`;
+}
+
+/* ---------- about ---------- */
+function renderAbout() {
+  const m = DATA.meta;
+  $('about').innerHTML = `
+    <div><div class="eyebrow">How it works</div><h1>About</h1></div>
+    <div class="prose">
+      <p>Every game here is a real rated game played on Lichess in ${monthName(m.month)}. You watch it, then guess the average of the two players’ ratings. Names are never shown.</p>
+      <h2>Scoring</h2>
+      <p><code>points = 1000 - 2 × max(0, error - 25)</code>, never below zero. A guess within 25 is a bullseye worth the full 1,000. Every point of error past that costs two, so a guess 525 off scores nothing. A daily is five rounds, up to 5,000 points. In practice, a streak counts guesses within 150.</p>
+      <h2>The games</h2>
+      <ul>
+        <li>Source: ${esc(m.source)}. ${m.scanned ? fmtInt(m.scanned) + ' games were scanned to build this set.' : ''}</li>
+        <li>Included: blitz, rapid and classical games that Lichess had analysed with an engine and that record both clocks on every move. Both players have established ratings and are within about 150 points of each other. Games run 20 to 80 moves and end normally or on time. Bots are excluded.</li>
+        <li>Spread: about ${m.perBand} games for each 100-point band of average rating, so the middle is no safer a guess than the edges. The top bands (2,700 and up) have fewer games because fewer exist.</li>
+        <li>Lichess ratings run higher than FIDE ratings, often by a few hundred points at club level.</li>
+      </ul>
+      <h2>The model</h2>
+      <p>The model is a machine-learning estimate (gradient-boosted trees) trained on ${fmtInt(m.trainCount)} other games from the same month. It reads only engine and clock figures: accuracy, centipawn loss, error counts, time control and time use. It never saw the games in this set. ${m.modelMAE ? `Its average miss on these games is ${m.modelMAE} rating points, against ${m.baselineMAE} for always guessing 1800.` : ''}</p>
+      <h2>Assist levels</h2>
+      <ul><li><b>Blind</b>: ${LEVEL_DESC.blind}</li><li><b>Standard</b>: ${LEVEL_DESC.standard}</li><li><b>Assisted</b>: ${LEVEL_DESC.assisted}</li></ul>
+      <p>Accuracy and move marks are estimates computed from Lichess’s own engine evaluations with the Lichess win-chance thresholds (inaccuracy, mistake and blunder at 5, 10 and 15 percentage points of winning chances lost). Thinking time per move is worked out from the clock record and is approximate.</p>
+      <h2>Keys</h2>
+      <p><code>←</code> <code>→</code> step, <code>Home</code> <code>End</code> first and last move, <code>Space</code> play or pause, <code>F</code> flip, <code>↑</code> <code>↓</code> guess ±25, <code>PgUp</code> <code>PgDn</code> ±100, digits type a guess, <code>Enter</code> lock in, then next game, <code>N</code> next game, <code>Esc</code> skip the reveal.</p>
+      <h2>Your data</h2>
+      <p>Your guesses and stats stay in this browser only. Nothing is sent anywhere.</p>
+      <p class="muted">Pieces: cburnett set by Colin M.L. Burnett (BSD/GPL licence). Game data: Lichess open database, CC0.</p>
+    </div>`;
+}
+
+/* ---------- keyboard ---------- */
+document.addEventListener('keydown', e => {
+  if (revealAnim) {
+    if (['Shift', 'Control', 'Alt', 'Meta', 'Tab'].includes(e.key)) return;
+    e.preventDefault(); revealAnim.finish(); return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  const inText = t.matches && t.matches('input[type=number], input[type=text], textarea');
+  const inRange = t.matches && t.matches('input[type=range]');
+  const onBtn = t.matches && t.matches('button, a');
+  if (view === 'summary' && (e.key === 'c' || e.key === 'C') && !inText) { const b = $('sum-copy'); if (b) b.click(); return; }
+  if (view !== 'game' || !R) return;
+  if (e.key === 'Escape' && inText) { t.blur(); return; }
+  if (inText && !['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown'].includes(e.key)) return;
+  const k = e.key;
+  if (k === 'ArrowLeft' || k === 'ArrowRight') {
+    if (inRange || t.closest && t.closest('.seg')) return;
+    e.preventDefault(); stopPlay(); goto(R.ply + (k === 'ArrowRight' ? 1 : -1), { animate: true, sound: k === 'ArrowRight' });
+  } else if (k === 'Home' || k === 'End') {
+    if (inRange) return;
+    e.preventDefault(); stopPlay(); goto(k === 'Home' ? 0 : R.n, {});
+  } else if (k === ' ') {
+    if (onBtn) return;
+    e.preventDefault(); R.playing ? stopPlay() : play();
+  } else if (k === 'f' || k === 'F') { flip(); }
+  else if (k === 'ArrowUp' || k === 'ArrowDown') {
+    if (inRange || R.revealed) return;
+    e.preventDefault(); nudge(k === 'ArrowUp' ? 25 : -25);
+  } else if (k === 'PageUp' || k === 'PageDown') {
+    if (R.revealed) return;
+    e.preventDefault(); nudge(k === 'PageUp' ? 100 : -100);
+  } else if (/^[0-9]$/.test(k)) {
+    if (R.revealed || R.review) return;
+    e.preventDefault(); const n = $('g-num'); n.focus(); n.value = k;
+  } else if (k === 'Enter') {
+    if (onBtn) return;
+    e.preventDefault(); R.revealed ? nextRound() : lockIn();
+  } else if ((k === 'n' || k === 'N') && R.revealed) { nextRound(); }
+});
+document.addEventListener('pointerdown', () => { if (revealAnim) revealAnim.finish(); }, true);
+
+/* ---------- boot ---------- */
+function boot() {
+  applyTheme(); applySound();
+  setLCD($('brand-lcd'), 'ELO', 'Elo');
+  setLCD($('load-lcd'), '????', 'Loading');
+  setLCD($('hero-lcd'), '????', 'Rating unknown');
+  if (!persist && !warned) warn();
+  showView('loading');
+  fetch('games.json').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(d => {
+    DATA = d; GAMES = d.games; BYID = new Map(GAMES.map(g => [g.id, g]));
+    renderHome(); showView('home');
+  }).catch(() => showView('error'));
+}
+$('retry').addEventListener('click', boot);
+window.__gte = { get R() { return R; }, store: () => store };
+boot();
+})();
+</script>
